@@ -62,12 +62,10 @@ extern uint32_t crc32_block(uint32_t crc, byte *pData, int blk_len)
   return crc;
 }
 
-
 int64_t ts_timestamp_diff(int64_t t1, int64_t t0, int64_t ovf)
 {
         int64_t td; /* t1 - t0 */
         int64_t hovf = ovf >> 1; /* half overflow */
-
         td = t1 - t0; /* minus */
         td += ((td >=   0) ? 0 : ovf); /* special: get the distance from t0 to t1 */
         td -= ((td <  hovf) ? 0 : ovf); /* special: (distance < hovf) means t1 is latter or bigger */
@@ -75,40 +73,14 @@ int64_t ts_timestamp_diff(int64_t t1, int64_t t0, int64_t ovf)
         return td; /* [-hovf, +hovf) */
 }
 
-/*
-unsigned long long parse_timestamp(unsigned char *buf)
-{
-	unsigned long long a1;
-	unsigned long long a2;
-	unsigned long long a3;
-	unsigned long long ts;
-
-	a1 = (buf[0] & 0x0F) >> 1;
-	a2 = ((buf[1] << 8) | buf[2]) >> 1;
-	a3 = ((buf[3] << 8) | buf[4]) >> 1;
-	ts = (a1 << 30) | (a2 << 15) | a3;
-	
-	return ts;
-}
-*/
 int main(int argc, char *argv[])
 {
-	int open_file;
 	int byte_read;
 	int fd_ts;
 	int sc;
 	int sl;
 	unsigned char * data;
 	int data_len;
-	//unsigned char timestamp[5];
-	//int tsid;
-	//int vn;
-	//int cni;
-	//int sn;
-	//int lsn;
-	//int dl;
-	//int pn;
-	//byte   *pd;
 	int pdl;
 	int i;
 	int b;
@@ -121,9 +93,7 @@ int main(int argc, char *argv[])
 	unsigned long long sync_loss_count;
 	int tei;
 	int table_id;
-	//int prog;
 	int pmt_start;
-	//int ssi;
 	unsigned long long last_pat = 0;
 	unsigned long long last_nit = 0;
 	unsigned long long last_sdt = 0;
@@ -137,10 +107,9 @@ int main(int argc, char *argv[])
 	int hassdt = 0;
 	int haseit = 0;
 	int hastdt = 0;
-//	int hasrst = 0;
 	unsigned int adaptation_field;
 	unsigned char packet[TS_PACKET_SIZE];
-	unsigned char pid_cc_table[MAX_PID];	/* PID table for the continuity counter of the TS packets */
+	unsigned char pid_cc_table[MAX_PID];
 	unsigned char repeated_cc_table[MAX_PID];
 	unsigned char pid_cc_status[MAX_PID];
 	unsigned int programs[MAX_PID];
@@ -161,18 +130,32 @@ int main(int argc, char *argv[])
 	int pcr_delta_error[MAX_PID];
 	unsigned int pcr_ext = 0;
 	unsigned long long int pcr_base = 0;
-	unsigned long long int pid_pcr_table[MAX_PID];	/* PCR table for the TS packets */
-	unsigned long long int pid_pcr_index_table[MAX_PID];	/* PCR index table for the TS packets */
-	unsigned long long int new_pcr = 0;	
+	unsigned long long int pid_pcr_table[MAX_PID];	
+	unsigned long long int pid_pcr_index_table[MAX_PID];	
+	unsigned long long int new_pcr = 0;
 	unsigned long long int new_pcr_index = 0;	
 	unsigned long long bitrate;
-	//unsigned long long time = 0;
-
+	float value;
+	FILE  *pcr_jitter_values;
+	FILE  * pcr_delta_values;
+	unsigned long long int pcr_count;
+	FILE  * pat_delta_values;
+	unsigned long long int pat_count;
+	FILE  * pmt_delta_values;
+	unsigned long long int pmt_count;
+	FILE  * sdt_delta_values;
+	unsigned long long int sdt_count;
+	FILE  * nit_delta_values;
+	unsigned long long int nit_count;
+	FILE  * eit_delta_values;
+	unsigned long long int eit_count;
+	FILE  * tdt_delta_values;
+	unsigned long long int tdt_count;
+	int reports = 0;
 	if (argc >= 3) {
-		open_file = 1;
-		fd_ts = open(argv[open_file], O_RDONLY);
+		fd_ts = open(argv[1], O_RDONLY);
 		if (fd_ts < 0) {
-			fprintf(stderr, "Can't find file %s\n", argv[open_file]);
+			fprintf(stderr, "Can't find file %s\n", argv[1]);
 			return 2;
 		}
 		bitrate = atol(argv[2]);
@@ -180,8 +163,72 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "transport_rate is 0?\n");
 			return 2;
 		}
+		
+		if (argv[3] != NULL) {
+			reports = atol(argv[3]);
+		}
+		if(sizeof(argv[1])>2048){
+			fprintf(stderr, "Why did you do this to me?\n");
+			return 0;
+		}
+		char buf[2048];
+		snprintf(buf, sizeof buf, "%s%s", argv[1], ".pcr_jitter_report.csv");
+		pcr_jitter_values = fopen(buf, "w");
+		if (pcr_jitter_values < 0) {
+			fprintf(stderr, "Can't open file %s\n",buf);
+			return 0;
+		}
+
+		if(reports){
+			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pcr_delta_report.csv");
+			pcr_delta_values = fopen(buf, "w");
+			if (pcr_delta_values < 0) {
+				fprintf(stderr, "Can't open file %s\n","pcr_delta_report.csv");
+				return 0;
+			}
+			
+			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pat_delta_report.csv");
+			pat_delta_values = fopen(buf, "w");
+			if (pat_delta_values < 0) {
+				fprintf(stderr, "Can't open file %s\n","pat_delta_report.csv");
+				return 0;
+			}
+			
+			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pmt_delta_report.csv");
+			pmt_delta_values = fopen(buf, "w");
+			if (pmt_delta_values < 0) {
+				fprintf(stderr, "Can't open file %s\n","pmt_delta_report.csv");
+				return 0;
+			}
+			snprintf(buf, sizeof buf, "%s%s", argv[1], ".sdt_delta_report.csv");
+			sdt_delta_values = fopen(buf, "w");
+			if (sdt_delta_values < 0) {
+				fprintf(stderr, "Can't open file %s\n","sdt_delta_report.csv");
+				return 0;
+			}
+
+			snprintf(buf, sizeof buf, "%s%s", argv[1], ".nit_delta_report.csv");
+			nit_delta_values = fopen(buf, "w");
+			if (nit_delta_values < 0) {
+				fprintf(stderr, "Can't open file %s\n","nit_delta_report.csv");
+				return 0;
+			}
+
+			snprintf(buf, sizeof buf, "%s%s", argv[1], ".eit_delta_report.csv");
+			eit_delta_values = fopen(buf, "w");
+			if (eit_delta_values < 0) {
+				fprintf(stderr, "Can't open file %s\n","eit_delta_report.csv");
+				return 0;
+			}
+			snprintf(buf, sizeof buf, "%s%s", argv[1], ".tdt_delta_report.csv");
+			tdt_delta_values = fopen(buf, "w");
+			if (tdt_delta_values < 0) {
+				fprintf(stderr, "Can't open file %s\n","tdt_delta_report.csv");
+				return 0;
+			}
+		}
 	} else {
-		fprintf(stderr, "Usage: 'tsetr290 filename.ts bitrate'\n");
+		fprintf(stderr, "Usage: 'tsetr290 filename.ts bitrate [debug]'\n");
 		fprintf(stderr, "tsetr290 run a ETR290 report on a mpeg-ts file.\n");
 		return 2;
 	}
@@ -213,8 +260,6 @@ int main(int argc, char *argv[])
 		
 		if (pid < MAX_PID) {
 			
-			
-			
 			tei = (packet[1] >> 7) & 0x01;
 			sc = (packet[3] >> 6) & 0x03;
 			table_id = packet[5];
@@ -239,7 +284,9 @@ int main(int argc, char *argv[])
 					if(table_id!=0){
 						fprintf(stdout,"1.3b - ERROR - PAT_error - table_id is invalid at packet %lld\n",position);
 					}else{
-						if( ((1504*(position-last_pat))/(bitrate/1000)) > 500){
+						value = (1504*(position-last_pat))/(bitrate/1000);
+						if(reports)fprintf(pat_delta_values, "%.3f\n", value);
+						if( value > 500){
 							fprintf(stdout,"1.3a - ERROR - PAT_error - spacing exceeds 500ms at packet %lld\n",position);
 						}
 						if(sc != 0){
@@ -270,17 +317,17 @@ int main(int argc, char *argv[])
 						if (check_crc != 0){
 						    fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for PAT is %08x, not 00000000  at packet %lld\n",crc, position);
 						}
-						
+						pat_count++;
 					}
 				}
 
 			
 
 				for(i=0; i<=progindex-1; i++){
-					//fprintf(stderr, "Check PMT prog #%d\n",i);
 					if (programs[i] == pid && table_id == 0x02) { 
-						//fprintf(stderr, "FOUND PMT %d (%3d) %d %d\n", programs[i],programs[i], pid, position);
-						if( ((1504*(position-last_pmt[pid]))/(bitrate/1000)) > 500){
+						value = (1504*(position-last_pmt[pid]))/(bitrate/1000);
+						if(reports)fprintf(pmt_delta_values, "%.3f\n", value);
+						if(  value > 500){
 							fprintf(stdout,"1.5a - ERROR - PMT_error - spacing exceeds 500ms for pid %d at packet %lld\n",pid,position);
 						}
 						//CHECK SCRAMBLING CONTROL
@@ -288,8 +335,6 @@ int main(int argc, char *argv[])
 							fprintf(stdout,"1.5c - ERROR - PMT_error - scrambling controll is not 0 at packet %lld\n",position);
 						}
 						//GET THE MAP TO MAKE SURE PIDS EXIST
-
-						
 						pcr_pids[i] = ((packet[13] & 0x1F) <<8 ) | packet[14];
 						//fprintf(stdout, "PCR PID %04x (%3d)\n",pcr_pids[pid],pcr_pids[pid]);
 						pdl = ((packet[15] & 0x0F) <<8 ) | packet[16];
@@ -326,15 +371,12 @@ int main(int argc, char *argv[])
 						{
 						    fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for PMT is %08x, not 00000000 at packet %lld\n",crc, position);
 						}
-
-
+						pmt_count++;
 						last_pmt[pid] = position;
 					}else if (programs[i] == pid && table_id != 0x02) {
 						//TABLE ID FOR PMT IS INVALID pcr_jitter
 						fprintf(stdout, "1.5b - ERROR - PMT_error - PMT (%d) table_id is invalid (0x%X) at packet %lld\n", pid,table_id,position);
 					}
-
-					
 				}
 				
 				
@@ -434,9 +476,13 @@ int main(int argc, char *argv[])
 					}
 					//JUST NIT, NOT ST?
 					if((table_id== 0x40 || table_id== 0x41)){
-						if( ((1504*(position-last_nit))/(bitrate/1000)) > 10000){
+						value = (1504*(position-last_nit))/(bitrate/1000);
+						if(reports)fprintf(nit_delta_values, "%.3f\n", value);
+
+						if( value > 10000){
 							fprintf(stdout,"3.1b  - ERROR - NIT_error - NIT spacing on pid %d is greater than 10000ms (%lld)  at packet %lld\n",pid,((1504*(position-last_nit))/(bitrate/1000)),position);
 						}
+						nit_count++;
 						last_nit = position;
 					}
 				}else{
@@ -461,9 +507,13 @@ int main(int argc, char *argv[])
 					{
 						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for SDT is %08x, not 00000000  at packet %lld\n",crc, position);
 					}
-					if( ((1504*(position-last_sdt))/(bitrate/1000)) > 2000){
+					value = (1504*(position-last_sdt))/(bitrate/1000);
+					if(reports)fprintf(sdt_delta_values, "%.3f\n", value);
+
+					if( value > 2000){
 							fprintf(stdout,"3.5a  - ERROR - SDT_error - Sections with table_id = 0x42 not present on PID 0x0011 for more than 2 seconds at packet %lld\n",position);
 					}
+					sdt_count++;
 					last_sdt = position;
 				}else if( table_id== 0x46 ||table_id== 0x4A || table_id== 0x72){
 					hassdt = 1;
@@ -505,9 +555,13 @@ int main(int argc, char *argv[])
 					{
 						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for TDT is %08x, not 00000000  at packet %lld\n",crc, position);
 					}
-					if( ((1504*(position-last_tdt))/(bitrate/1000)) > 30000){
+					value =  (1504*(position-last_tdt))/(bitrate/1000) ;
+					if(reports)fprintf(tdt_delta_values, "%.3f\n", value);
+
+					if( value > 30000){
 							fprintf(stdout,"3.8a  - ERROR - TDT_error - Sections with table_id = 0x70 not present on PID 0x0014 for more than 30 seconds at packet %lld\n",position);
 					}
+					tdt_count++;
 					last_tdt = position;
 				}else if(table_id== 0x73  || table_id== 0x72){ // 72???
 					hastdt = 1;
@@ -546,9 +600,13 @@ int main(int argc, char *argv[])
 					{
 						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for EIT is %08x, not 00000000  at packet %lld\n",crc, position);
 					}
-					if( ((1504*(position-last_eit))/(bitrate/1000)) > 2000){
+					if(reports)value = (1504*(position-last_eit))/(bitrate/1000);
+					fprintf(eit_delta_values, "%.3f\n", value);
+
+					if( value > 2000){
 						fprintf(stdout,"3.6a  - ERROR - EIT_error - Sections with table_id = 0x4E not present on PID 0x0012 for more than 2 seconds at packet %lld\n",position);
 					}
+					eit_count++;
 					last_eit = position;
 				}else if((table_id >= 0x4e  && table_id <= 0x6F) || table_id == 0x72){
 					haseit = 1;
@@ -610,6 +668,12 @@ int main(int argc, char *argv[])
 									fprintf(stdout,"2.4  - ERROR - PCR_accuracy_error - PCR jitter is greater than +- 500ns at packet %lld\n",position);
 								}
 
+								if(reports){
+									fprintf(pcr_jitter_values, "%.3f\n", pcr_jitter);
+									fprintf(pcr_delta_values, "%.3f\n", pcr_delta);
+								}
+
+								pcr_count++;
 								pid_pcr_table[pid] = new_pcr;
 								pid_pcr_index_table[pid] = new_pcr_index;
 
@@ -622,9 +686,8 @@ int main(int argc, char *argv[])
 		}
 
 		if ((packet[4] == 0x00) && (packet[5] == 0x00) && (packet[6] == 0x01)) { 
-			//memcpy(timestamp, packet +13, 5);
-			//time = parse_timestamp(timestamp);	//Don't need it really
 			if( ((1504*(position-last_pts[pid]))/(bitrate/1000)) > 700){
+				//Not sure if this is per pid or in general.? based on per pid.
 				fprintf(stdout,"2.5  - ERROR - PTS_error - PTS spacing on pid %d is greater than 700ms (%lld)  at packet %lld\n",pid,((1504*(position-last_pts[pid]))/(bitrate/1000)),position);
 			}
 			last_pts[pid] = position;
@@ -678,8 +741,6 @@ delay of still picture video data through the
 TSTD buffers superior to 60 seconds
 */
 
-
-
 		position++;
 	}
 	for(i=0; i<streams; i++){
@@ -705,6 +766,18 @@ TSTD buffers superior to 60 seconds
 	}
 	if(!hastdt){
 			fprintf(stdout,"3.8a - ERROR - TDT_error - TDT packets not found in stream\n");
+	}
+	
+	close(fd_ts);
+	if(reports){
+		fclose(pcr_jitter_values);
+		fclose(pcr_delta_values);
+		fclose(pat_delta_values);
+		fclose(pmt_delta_values);
+		fclose(sdt_delta_values);
+		fclose(nit_delta_values);
+		fclose(eit_delta_values);
+		fclose(tdt_delta_values);
 	}
 	return 0;
 }
