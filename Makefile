@@ -1,6 +1,6 @@
-C      = gcc
-CFLAGS  = -g -MD -Wall -I. -I../../include -D_FILE_OFFSET_BITS=64
-LFLAGS  = -lc 
+CC      = gcc
+CFLAGS  = -g -ggdb3 -O0 -std=c99 -pipe -Wall -Wextra -pedantic -D_FILE_OFFSET_BITS=64
+LFLAGS  =
 
 OBJS = tsetr290.o
 TARGET = tsetr290
@@ -18,7 +18,4 @@ install: all
 	install -m 755 $(TARGET) $(DESTDIR) 
 
 clean:
-	rm -f $(TARGET) $(OBJS) core* *~ *.d
-
--include $(wildcard *.d) dummy
-
+	rm -f $(TARGET) $(OBJS) core* *~
