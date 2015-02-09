@@ -72,6 +72,20 @@ int64_t ts_timestamp_diff(int64_t t1, int64_t t0, int64_t ovf)
 
         return td; /* [-hovf, +hovf) */
 }
+unsigned long long parse_timestamp(unsigned char *buf)
+{
+	unsigned long long a1;
+	unsigned long long a2;
+	unsigned long long a3;
+	unsigned long long ts;
+
+	a1 = (buf[0] & 0x0F) >> 1;
+	a2 = ((buf[1] << 8) | buf[2]) >> 1;
+	a3 = ((buf[3] << 8) | buf[4]) >> 1;
+	ts = (a1 << 30) | (a2 << 15) | a3;
+	
+	return ts;
+}
 
 int main(int argc, char *argv[])
 {
@@ -152,6 +166,9 @@ int main(int argc, char *argv[])
 	FILE  * tdt_delta_values;
 	unsigned long long int tdt_count;
 	int reports = 0;
+        unsigned char timestamp[5];
+	unsigned long long time = 0;
+
 	if (argc >= 3) {
 		fd_ts = open(argv[1], O_RDONLY);
 		if (fd_ts < 0) {
@@ -684,13 +701,23 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-
-		if ((packet[4] == 0x00) && (packet[5] == 0x00) && (packet[6] == 0x01)) { 
-			if( ((1504*(position-last_pts[pid]))/(bitrate/1000)) > 700){
-				//Not sure if this is per pid or in general.? based on per pid.
-				fprintf(stdout,"2.5  - ERROR - PTS_error - PTS spacing on pid %d is greater than 700ms (%lld)  at packet %lld\n",pid,((1504*(position-last_pts[pid]))/(bitrate/1000)),position);
+                //Check for PTS
+		if ((packet[4] == 0x00) && (packet[5] == 0x00) && (packet[6] == 0x01)) {
+			//Check for audio or video PTS types
+			if ((packet[7] >> 4) == 0x0E || ((packet[7] >> 5) == 0x05) || ((packet[7] >> 5) == 0x06) ) { 
+			//Check the timestamp
+			memcpy(timestamp, packet + 13, 5);
+			time = parse_timestamp(timestamp);
+			//Miliseconds 
+			time = time/90;
+		        if(last_pts[pid] >0){
+				//check the timestamp delta's, warn if more than 700ms
+				if(time - last_pts[pid]  > 700 ){
+					fprintf(stdout,"2.5  - ERROR - PTS_error - PTS spacing on pid %d is greater than 700ms (%lld)  at packet %lld\n",pid,time - last_pts[pid],position);
+				}
 			}
-			last_pts[pid] = position;
+			last_pts[pid] = time;
+			}
 		}
 
 		//TODO - I'm no expert, and these are well beyond my range at the moment.
@@ -751,7 +778,7 @@ TSTD buffers superior to 60 seconds
 	for(i=0; i<pid_count; i++){
 		int match;
 		for(b=0; b<streams; b++){
-			if(total_pids[i] == streampids[i])match=1;
+			if(total_pids[i] == streampids[b])match=1;
 		}
 		if(!match)fprintf(stdout, "3.4  - ERROR - PID_error - PID (%d) found in stream, not in PMT\n", total_pids[i]);
 	}
