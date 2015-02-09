@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 	unsigned long long streamtypes[MAX_PID];
 	unsigned long long streampids[MAX_PID];
 	unsigned int total_pids[MAX_PID];
-	int pid_count;
+	int pid_count = 0;
 	int ispmt;
 	unsigned int valid_stream[MAX_PID];
 	unsigned long long pcr_pids[MAX_PID];
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
 		char buf[2048];
 		snprintf(buf, sizeof buf, "%s%s", argv[1], ".pcr_jitter_report.csv");
 		pcr_jitter_values = fopen(buf, "w");
-		if (pcr_jitter_values < 0) {
+		if (pcr_jitter_values == NULL) {
 			fprintf(stderr, "Can't open file %s\n",buf);
 			return 0;
 		}
@@ -182,47 +182,47 @@ int main(int argc, char *argv[])
 		if(reports){
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pcr_delta_report.csv");
 			pcr_delta_values = fopen(buf, "w");
-			if (pcr_delta_values < 0) {
+			if (pcr_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","pcr_delta_report.csv");
 				return 0;
 			}
 			
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pat_delta_report.csv");
 			pat_delta_values = fopen(buf, "w");
-			if (pat_delta_values < 0) {
+			if (pat_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","pat_delta_report.csv");
 				return 0;
 			}
 			
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pmt_delta_report.csv");
 			pmt_delta_values = fopen(buf, "w");
-			if (pmt_delta_values < 0) {
+			if (pmt_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","pmt_delta_report.csv");
 				return 0;
 			}
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".sdt_delta_report.csv");
 			sdt_delta_values = fopen(buf, "w");
-			if (sdt_delta_values < 0) {
+			if (sdt_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","sdt_delta_report.csv");
 				return 0;
 			}
 
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".nit_delta_report.csv");
 			nit_delta_values = fopen(buf, "w");
-			if (nit_delta_values < 0) {
+			if (nit_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","nit_delta_report.csv");
 				return 0;
 			}
 
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".eit_delta_report.csv");
 			eit_delta_values = fopen(buf, "w");
-			if (eit_delta_values < 0) {
+			if (eit_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","eit_delta_report.csv");
 				return 0;
 			}
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".tdt_delta_report.csv");
 			tdt_delta_values = fopen(buf, "w");
-			if (tdt_delta_values < 0) {
+			if (tdt_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","tdt_delta_report.csv");
 				return 0;
 			}
