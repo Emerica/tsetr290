@@ -9,4 +9,3 @@ Python GUI for this will be made in another repo.
 ./tsetr290 mytestfile.ts 15000000 1
 
 
-Testing.
