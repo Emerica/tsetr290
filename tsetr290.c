@@ -1,5 +1,5 @@
 #include <fcntl.h>
-#include <unistd.h> 
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -53,7 +53,7 @@ extern uint32_t crc32_block(uint32_t crc, byte *pData, int blk_len)
   int i, j;
 
   if (!table_made) make_crc_table();
-  
+
   for (j = 0; j < blk_len; j++)
   {
     i = ((crc >> 24) ^ *pData++) & 0xff;
@@ -83,7 +83,7 @@ unsigned long long parse_timestamp(unsigned char *buf)
 	a2 = ((buf[1] << 8) | buf[2]) >> 1;
 	a3 = ((buf[3] << 8) | buf[4]) >> 1;
 	ts = (a1 << 30) | (a2 << 15) | a3;
-	
+
 	return ts;
 }
 
@@ -102,9 +102,9 @@ int main(int argc, char *argv[])
  	uint32_t check_crc;
 	unsigned short pid;
 	int sync_error;
-	unsigned long long sync_count;
-	unsigned long long sync_error_count;
-	unsigned long long sync_loss_count;
+	unsigned long long sync_count = 0;
+	unsigned long long sync_error_count = 0;
+	unsigned long long sync_loss_count = 0;
 	int tei;
 	int table_id;
 	int pmt_start;
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 	int ispmt;
 	unsigned int valid_stream[MAX_PID];
 	unsigned long long pcr_pids[MAX_PID];
-	unsigned long long cc_error_count;
+	unsigned long long cc_error_count = 0;
 	unsigned long long position = 1;
 	unsigned long long last_pcr[MAX_PID];
 	unsigned long long pcrfound[MAX_PID];
@@ -144,30 +144,30 @@ int main(int argc, char *argv[])
 	int pcr_delta_error[MAX_PID];
 	unsigned int pcr_ext = 0;
 	unsigned long long int pcr_base = 0;
-	unsigned long long int pid_pcr_table[MAX_PID];	
-	unsigned long long int pid_pcr_index_table[MAX_PID];	
+	unsigned long long int pid_pcr_table[MAX_PID];
+	unsigned long long int pid_pcr_index_table[MAX_PID];
 	unsigned long long int new_pcr = 0;
-	unsigned long long int new_pcr_index = 0;	
+	unsigned long long int new_pcr_index = 0;
 	unsigned long long bitrate;
 	float value;
 	FILE  *pcr_jitter_values;
 	FILE  * pcr_delta_values;
-	unsigned long long int pcr_count;
+	unsigned long long int pcr_count = 0;
 	FILE  * pat_delta_values;
-	unsigned long long int pat_count;
+	unsigned long long int pat_count = 0;
 	FILE  * pmt_delta_values;
-	unsigned long long int pmt_count;
+	unsigned long long int pmt_count = 0;
 	FILE  * sdt_delta_values;
-	unsigned long long int sdt_count;
+	unsigned long long int sdt_count = 0;
 	FILE  * nit_delta_values;
-	unsigned long long int nit_count;
+	unsigned long long int nit_count = 0;
 	FILE  * eit_delta_values;
-	unsigned long long int eit_count;
+	unsigned long long int eit_count = 0;
 	FILE  * tdt_delta_values;
-	unsigned long long int tdt_count;
+	unsigned long long int tdt_count = 0;
 	int reports = 0;
         unsigned char timestamp[5];
-	unsigned long long time = 0;
+	unsigned long long atime = 0;
 
 	if (argc >= 3) {
 		fd_ts = open(argv[1], O_RDONLY);
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "transport_rate is 0?\n");
 			return 2;
 		}
-		
+
 		if (argv[3] != NULL) {
 			reports = atol(argv[3]);
 		}
@@ -203,14 +203,14 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "Can't open file %s\n","pcr_delta_report.csv");
 				return 0;
 			}
-			
+
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pat_delta_report.csv");
 			pat_delta_values = fopen(buf, "w");
 			if (pat_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","pat_delta_report.csv");
 				return 0;
 			}
-			
+
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pmt_delta_report.csv");
 			pmt_delta_values = fopen(buf, "w");
 			if (pmt_delta_values == NULL) {
@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 
 	memset(pid_cc_table, 0x10,  MAX_PID);
 	memset(repeated_cc_table, 0,  MAX_PID);
-	memset(pid_pcr_table, 0,  MAX_PID*(sizeof(unsigned long long int)));	
+	memset(pid_pcr_table, 0,  MAX_PID*(sizeof(unsigned long long int)));
 	memset(pid_pcr_index_table, 0,  MAX_PID*(sizeof(unsigned long long int)));
 	memset(valid_stream, 0,  MAX_PID*(sizeof(int)));
 	memset(streamtypes, 0,  MAX_PID*(sizeof(unsigned long long int)));
@@ -263,20 +263,20 @@ int main(int argc, char *argv[])
 	memset(last_pmt, 0,  MAX_PID*(sizeof(unsigned long long int)));
 	memset(last_pts, 0,  MAX_PID*(sizeof(unsigned long long int)));
 	while(1) {
-		
+
 		byte_read = 0;
 		byte_read = read(fd_ts, packet, TS_PACKET_SIZE);
 		if (byte_read < TS_PACKET_SIZE) {
 			break;
 		}
-		
+
 		//pid
 		memcpy(&pid, packet + 1, 2);
 		pid = ntohs(pid);
 		pid = pid & 0x1fff;
-		
+
 		if (pid < MAX_PID) {
-			
+
 			tei = (packet[1] >> 7) & 0x01;
 			sc = (packet[3] >> 6) & 0x03;
 			table_id = packet[5];
@@ -285,7 +285,7 @@ int main(int argc, char *argv[])
 
 			if(packet[0] != 0x47) {
 				fprintf(stdout, "1.2  - ERROR - Sync_byte_error - Sync byte is 0x%X not 0x47 at packet %lld\n", packet[0],position);
-				sync_error_count+=1;			
+				sync_error_count+=1;
 				if(sync_error>0 && sync_count>5) {
 					fprintf(stdout, "1.1  - ERROR - TS_sync_loss - %lld consecutive sync errors at packet %lld\n", sync_loss_count+1, position);
 					sync_loss_count++;
@@ -309,7 +309,7 @@ int main(int argc, char *argv[])
 						if(sc != 0){
 							fprintf(stdout,"1.3c - ERROR - PAT_error - scrambling controll is not 0 at packet %lld\n",position);
 						}
-						if(adaptation_field == 0x01 || adaptation_field == 0x11) { 
+						if(adaptation_field == 0x01 || adaptation_field == 0x11) {
 						 //fprintf(stdout,"ADAPTING  = %X\n", adaptation_field);
 						}
 						last_pat = position;
@@ -338,10 +338,10 @@ int main(int argc, char *argv[])
 					}
 				}
 
-			
+
 
 				for(i=0; i<=progindex-1; i++){
-					if (programs[i] == pid && table_id == 0x02) { 
+					if (programs[i] == pid && table_id == 0x02) {
 						value = (1504*(position-last_pmt[pid]))/(bitrate/1000);
 						if(reports)fprintf(pmt_delta_values, "%.3f\n", value);
 						if(  value > 500){
@@ -395,13 +395,13 @@ int main(int argc, char *argv[])
 						fprintf(stdout, "1.5b - ERROR - PMT_error - PMT (%d) table_id is invalid (0x%X) at packet %lld\n", pid,table_id,position);
 					}
 				}
-				
-				
-				
-				if (pid_cc_table[pid] == 0x10) { 
+
+
+
+				if (pid_cc_table[pid] == 0x10) {
 					//fprintf(stderr, "New PID found in stream %d\n", pid);
 					//total up anything that can go into a pmt besides a null
-					if(pid >=32 && pid < 8191){ 
+					if(pid >=32 && pid < 8191){
 						ispmt = 0;
 						for(i=0; i<=progindex-1; i++){
 							if(programs[i] == pid)ispmt=1;
@@ -411,15 +411,15 @@ int main(int argc, char *argv[])
 							pid_count++;
 						}
 					}
-					
+
 				} else {
 					if (((pid_cc_table[pid] + 1) % 16) != (packet[3] & 0xF)) {
-						if (adaptation_field == 0x0 || adaptation_field == 0x2) { 
+						if (adaptation_field == 0x0 || adaptation_field == 0x2) {
 							/* reserved, no increment */;
-						} else if ((adaptation_field == 0x1) && ((packet[3] & 0x0f) == pid_cc_table[pid]) && (!repeated_cc_table[pid])) { 
+						} else if ((adaptation_field == 0x1) && ((packet[3] & 0x0f) == pid_cc_table[pid]) && (!repeated_cc_table[pid])) {
 							/* double packet accepted only once */
 							repeated_cc_table[pid] = 1;
-						} else if ((adaptation_field == 0x3) && ((packet[3] & 0x0f) == pid_cc_table[pid]) && (!repeated_cc_table[pid])) { 
+						} else if ((adaptation_field == 0x3) && ((packet[3] & 0x0f) == pid_cc_table[pid]) && (!repeated_cc_table[pid])) {
 							/* double packet accepted only once */
 							repeated_cc_table[pid] = 1;
 						} else {
@@ -433,23 +433,23 @@ int main(int argc, char *argv[])
 					}
 				}
 				pid_cc_table[pid] = packet[3] & 0xF;
-				
-				
+
+
 				for(i=0; i<streams; i++){
 					if(streampids[i] == pid){
 						valid_stream[pid] = 1;
 					}
-					
+
 				}
 			//}
-		
+
 			//Check for the TEI being set.
 			if(tei){
 				fprintf(stdout, "2.1  - ERROR - Transport_error - Transport_error indicator is 1  on PID %d at packet %lld\n", pid,position);
 			}
 
 			//Check for CAT packets
-			if(pid == 1){				
+			if(pid == 1){
 				//CAT
 				if(table_id!=0x01){
 						fprintf(stdout,"2.6b - ERROR - CAT_error - Section with table_id other than 0x01 found on PID 0x0001 at packet %llu\n",position);
@@ -469,11 +469,11 @@ int main(int argc, char *argv[])
 					}
 				}
 			}
-			
+
 			if(sc!=0x00 && !hascat){
 				fprintf(stdout,"2.6a - ERROR - CAT_error -  transport_scrambling_control set, but no section with no CAT present at packet %llu\n",position);
 			}
-			
+
 
 			//Check for NIT packets
 			if(pid == 0x10){
@@ -506,7 +506,7 @@ int main(int argc, char *argv[])
 					fprintf(stdout,"3.1a - ERROR - NIT_error -  Section with table_id other than 0x40 or 0x41 or 0x72 at with pid 0x10 at packet %lld\n",position);
 				}
 			}
-			
+
 			//Check for SDT packets
 			if(pid == 0x11 ){
 
@@ -599,7 +599,7 @@ int main(int argc, char *argv[])
 					fprintf(stdout,"3.8b - ERROR - TDT_error -  Section with table_id other than 0x70, 0x72, 0x73 found on PID 0x0014 at packet %lld\n",position);
 				}
 			}
-			
+
 
 			//Check for EIT packets
 			if(pid == 0x12){
@@ -639,19 +639,19 @@ int main(int argc, char *argv[])
 					//hasrst=1;
 				}else{
 					fprintf(stdout,"3.7  - ERROR - RST_error -  Sections with table_id other than 0x71 or 0x72 found on PID 0x0013 at packet %lld\n",position);
-				
+
 				}
 			}
-			
+
 
 			for(i=0; i< progindex; i++){
 				if(pcr_delta_error[i] == 0  && ((1504*(position-last_pcr[i]))/(bitrate/1000)) > 100 ){
 					if( ((1504*(position-last_pcr[i]))/(bitrate/1000)) > 100 ){
-						pcr_delta_error[i] =1; 
+						pcr_delta_error[i] =1;
 					}
 				}
 			}
-			
+
 			for(i=0; i< progindex; i++){
 				if(pid == pcr_pids[i]){
 					adaptation_field = (packet[3] >> 4) & 0x03;
@@ -667,13 +667,13 @@ int main(int argc, char *argv[])
 						if ((packet[3] & 0x20) && (packet[4] != 0) && (packet[5] & 0x10)) { /* there is a pcr field */
 							pcr_base = (((unsigned long long int)packet[6]) << 25) + (packet[7] << 17) + (packet[8] << 9) + (packet[9] << 1) + (packet[10] >> 7);
 							pcr_ext = ((packet[10] & 1) << 8) + packet[11];
-							if (pid_pcr_table[pid] == 0) { 
+							if (pid_pcr_table[pid] == 0) {
 								pid_pcr_table[pid] = pcr_base * 300 + pcr_ext;
 								pid_pcr_index_table[pid] = (position * TS_PACKET_SIZE);
-							} else { 
+							} else {
 								new_pcr = pcr_base * 300 + pcr_ext;
 								new_pcr_index = (position * TS_PACKET_SIZE);
-								
+
 								pcr_jitter =(((float) (new_pcr - pid_pcr_table[pid])) / SYSTEM_CLOCK_FREQUENCY) - (((float)(new_pcr_index - pid_pcr_index_table[pid])) * 8 / bitrate),
 								pcr_delta = ((float)((new_pcr - pid_pcr_table[pid]) * 1000)) / SYSTEM_CLOCK_FREQUENCY;
 
@@ -701,27 +701,33 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
-                //Check for PTS
+    //Check for PTS
 		if ((packet[4] == 0x00) && (packet[5] == 0x00) && (packet[6] == 0x01)) {
 			//Check for audio or video PTS types
-			if ((packet[7] >> 4) == 0x0E || ((packet[7] >> 5) == 0x05) || ((packet[7] >> 5) == 0x06) ) { 
-			//Check the timestamp
-			memcpy(timestamp, packet + 13, 5);
-			time = parse_timestamp(timestamp);
-			//Miliseconds 
-			time = time/90;
-		        if(last_pts[pid] >0){
-				//check the timestamp delta's, warn if more than 700ms
-				if(time - last_pts[pid]  > 700 ){
-					fprintf(stdout,"2.5  - ERROR - PTS_error - PTS spacing on pid %d is greater than 700ms (%lld)  at packet %lld\n",pid,time - last_pts[pid],position);
-				}
-			}
-			last_pts[pid] = time;
+			if ((packet[7] >> 4) == 0x0E || ((packet[7] >> 5) == 0x05) || ((packet[7] >> 5) == 0x06) ) {
+			  //Check the timestamp
+  			memcpy(timestamp, packet + 13, 5);
+  			atime = parse_timestamp(timestamp);
+  			//Miliseconds
+  			atime = atime/90;
+  		  if(last_pts[pid] >0){
+  				//check the timestamp delta's, warn if more than 700ms
+  				if((atime - last_pts[pid])  >=700 && atime > last_pts[pid] ){
+  					fprintf(stdout,"2.5  - ERROR - PTS_error - PTS spacing on pid %d is greater than 700ms (%lld) time: %lld lasttime:%lld at packet %lld\n" ,pid,atime - last_pts[pid],atime, last_pts[pid], position);
+  				}
+  			}
+        //Some pts might be in the past? by about 50ms per b frame?  Leaving a negative return above
+        //Lets only track the latest pts as a base?
+        //I haven't researched any spec in regards to it this would be correct or not,
+        //
+        if(atime > last_pts[pid]){
+          last_pts[pid] = atime;
+        }
 			}
 		}
 
 		//TODO - I'm no expert, and these are well beyond my range at the moment.
-		
+
 		// 3.2 - 3.2 SI_repetition_error Repetition rate of SI tables outside of vspecified limits (25ms)
 		/*3.3 Buffer_error TB_buffering_error
 overflow of transport buffer (TBn)
@@ -744,8 +750,8 @@ B_buffering_error
 overflow or underflow of main buffer (Bn)
 Bsys_buffering_error
 overflow of PSI input buffer (Bsys)*/
-	
-	
+
+
 	/*3.9 Empty_buffer_error Transport buffer (TBn) not empty at least
 once per second
 or
@@ -794,7 +800,7 @@ TSTD buffers superior to 60 seconds
 	if(!hastdt){
 			fprintf(stdout,"3.8a - ERROR - TDT_error - TDT packets not found in stream\n");
 	}
-	
+
 	close(fd_ts);
 	if(reports){
 		fclose(pcr_jitter_values);
