@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	unsigned long long last_tdt = 0;
 	unsigned long long last_pts[MAX_PID];
 	int progindex = 0;
-	int 	streams = 0;
+	int streams = 0;
 	int hascat = 0;
 	int hasnit = 0;
 	int hassdt = 0;
@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
 							fprintf(stdout,"1.3a - ERROR - PAT_error - spacing exceeds 500ms at packet %lld\n",position);
 						}
 						if(sc != 0){
-							fprintf(stdout,"1.3c - ERROR - PAT_error - scrambling controll is not 0 at packet %lld\n",position);
+							fprintf(stdout,"1.3c - ERROR - PAT_error - scrambling control is not 0 at packet %lld\n",position);
 						}
 						if(adaptation_field == 0x01 || adaptation_field == 0x11) {
 						 //fprintf(stdout,"ADAPTING  = %X\n", adaptation_field);
@@ -349,7 +349,7 @@ int main(int argc, char *argv[])
 						}
 						//CHECK SCRAMBLING CONTROL
 						if(sc != 0){
-							fprintf(stdout,"1.5c - ERROR - PMT_error - scrambling controll is not 0 at packet %lld\n",position);
+							fprintf(stdout,"1.5c - ERROR - PMT_error - scrambling control is not 0 at packet %lld\n",position);
 						}
 						//GET THE MAP TO MAKE SURE PIDS EXIST
 						pcr_pids[i] = ((packet[13] & 0x1F) <<8 ) | packet[14];
