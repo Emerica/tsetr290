@@ -54,7 +54,7 @@ Most checks have been implemented, I haven't had a need to pass L3, but again fe
 ## 3.0 ##
 - [x] 3.1a - ERROR - NIT_error -  Section with table_id other than 0x40 or 0x41 or 0x72
 - [x] 3.1b - ERROR - NIT_error - NIT spacing on pid %d is greater than 10000ms
-- [x] 3.2  - ERROR - SI_repetition_error Repetition rate of SI tables outside of specified limits (25ms) :construction:
+- [x] 3.2  - ERROR - SI_repetition_error Repetition rate of SI tables outside of specified limits (25ms)
 - [ ] 3.3  - ERROR - Buffer_error TB_buffering_error :construction:
 - [x] 3.4  - ERROR - PID_error - PID found in stream, not in PMT
 - [x] 3.5a - ERROR - SDT_error - SDT packets not found in stream
