@@ -47,6 +47,7 @@ static void make_crc_table(void)
 
 }
 
+
 extern uint32_t crc32_block(uint32_t crc, byte *pData, int blk_len)
 {
   static int table_made = 0;
@@ -87,19 +88,32 @@ unsigned long long parse_timestamp(unsigned char *buf)
 	return ts;
 }
 
+uint32_t check_crc(unsigned char * packet){
+  unsigned char * data;
+  uint32_t check_crc;
+  int crc = 0;
+  int sl = ( (packet[6] & 0x0F) << 8) | packet[7];
+  data = packet+5;
+  int data_len = sl + 3;
+  crc = (crc << 8) | data[data_len-4];
+  crc = (crc << 8) | data[data_len-3];
+  crc = (crc << 8) | data[data_len-2];
+  crc = (crc << 8) | data[data_len-1];
+  check_crc = crc32_block(0xffffffff,data,data_len);
+  return check_crc;
+}
+
+
+
 int main(int argc, char *argv[])
 {
 	int byte_read;
 	int fd_ts;
 	int sc;
 	int sl;
-	unsigned char * data;
-	int data_len;
 	int pdl;
 	int i;
 	int b;
-	uint32_t crc = 0;
- 	uint32_t check_crc;
 	unsigned short pid;
 	int sync_error;
 	unsigned long long sync_count = 0;
@@ -113,14 +127,26 @@ int main(int argc, char *argv[])
 	unsigned long long last_sdt = 0;
 	unsigned long long last_eit = 0;
 	unsigned long long last_tdt = 0;
+  unsigned long long last_tot = 0;
+  unsigned long long last_bat = 0;
+  unsigned long long last_rst = 0;
+  unsigned long long last_cat = 0;
+
 	unsigned long long last_pts[MAX_PID];
 	int progindex = 0;
 	int streams = 0;
+
+  int haspat = 0;
+  int haspmt = 0;
 	int hascat = 0;
 	int hasnit = 0;
 	int hassdt = 0;
+  int hasbat = 0;
 	int haseit = 0;
 	int hastdt = 0;
+  int hastot = 0;
+  int hasrst = 0;
+
 	unsigned int adaptation_field;
 	unsigned char packet[TS_PACKET_SIZE];
 	unsigned char pid_cc_table[MAX_PID];
@@ -165,8 +191,17 @@ int main(int argc, char *argv[])
 	unsigned long long int eit_count = 0;
 	FILE  * tdt_delta_values;
 	unsigned long long int tdt_count = 0;
+  FILE  * tot_delta_values;
+  unsigned long long int tot_count = 0;
+  FILE  * bat_delta_values;
+  unsigned long long int bat_count = 0;
+  FILE  * rst_delta_values;
+  unsigned long long int rst_count = 0;
+  FILE  * cat_delta_values;
+  unsigned long long int cat_count = 0;
+
 	int reports = 0;
-        unsigned char timestamp[5];
+  unsigned char timestamp[5];
 	unsigned long long atime = 0;
 
 	if (argc >= 3) {
@@ -180,7 +215,6 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "transport_rate is 0?\n");
 			return 2;
 		}
-
 		if (argv[3] != NULL) {
 			reports = atol(argv[3]);
 		}
@@ -195,7 +229,6 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Can't open file %s\n",buf);
 			return 0;
 		}
-
 		if(reports){
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pcr_delta_report.csv");
 			pcr_delta_values = fopen(buf, "w");
@@ -203,14 +236,12 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "Can't open file %s\n","pcr_delta_report.csv");
 				return 0;
 			}
-
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pat_delta_report.csv");
 			pat_delta_values = fopen(buf, "w");
 			if (pat_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","pat_delta_report.csv");
 				return 0;
 			}
-
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".pmt_delta_report.csv");
 			pmt_delta_values = fopen(buf, "w");
 			if (pmt_delta_values == NULL) {
@@ -223,14 +254,12 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "Can't open file %s\n","sdt_delta_report.csv");
 				return 0;
 			}
-
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".nit_delta_report.csv");
 			nit_delta_values = fopen(buf, "w");
 			if (nit_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","nit_delta_report.csv");
 				return 0;
 			}
-
 			snprintf(buf, sizeof buf, "%s%s", argv[1], ".eit_delta_report.csv");
 			eit_delta_values = fopen(buf, "w");
 			if (eit_delta_values == NULL) {
@@ -241,6 +270,30 @@ int main(int argc, char *argv[])
 			tdt_delta_values = fopen(buf, "w");
 			if (tdt_delta_values == NULL) {
 				fprintf(stderr, "Can't open file %s\n","tdt_delta_report.csv");
+				return 0;
+			}
+      snprintf(buf, sizeof buf, "%s%s", argv[1], ".tot_delta_report.csv");
+			tot_delta_values = fopen(buf, "w");
+			if (tot_delta_values == NULL) {
+				fprintf(stderr, "Can't open file %s\n","tot_delta_report.csv");
+				return 0;
+			}
+      snprintf(buf, sizeof buf, "%s%s", argv[1], ".cat_delta_report.csv");
+			cat_delta_values = fopen(buf, "w");
+			if (cat_delta_values == NULL) {
+				fprintf(stderr, "Can't open file %s\n","cat_delta_report.csv");
+				return 0;
+			}
+      snprintf(buf, sizeof buf, "%s%s", argv[1], ".bat_delta_report.csv");
+			bat_delta_values = fopen(buf, "w");
+			if (bat_delta_values == NULL) {
+				fprintf(stderr, "Can't open file %s\n","bat_delta_report.csv");
+				return 0;
+			}
+      snprintf(buf, sizeof buf, "%s%s", argv[1], ".rst_delta_report.csv");
+			rst_delta_values = fopen(buf, "w");
+			if (rst_delta_values == NULL) {
+				fprintf(stderr, "Can't open file %s\n","rst_delta_report.csv");
 				return 0;
 			}
 		}
@@ -302,17 +355,20 @@ int main(int argc, char *argv[])
 						fprintf(stdout,"1.3b - ERROR - PAT_error - table_id is invalid at packet %lld\n",position);
 					}else{
 						value = (1504*(position-last_pat))/(bitrate/1000);
-						if(reports)fprintf(pat_delta_values, "%.3f\n", value);
 						if( value > 500){
 							fprintf(stdout,"1.3a - ERROR - PAT_error - spacing exceeds 500ms at packet %lld\n",position);
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - PAT spacing exceeds 500ms at packet %lld\n",position);
 						}
+            //Ignore the first one, we want to see that as soon as possible
+            if( value < 25 && haspat){
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - PAT spacing subceeds 25ms at packet %lld, last pat: %lld\n",position, last_pat);
+            }
 						if(sc != 0){
 							fprintf(stdout,"1.3c - ERROR - PAT_error - scrambling control is not 0 at packet %lld\n",position);
 						}
 						if(adaptation_field == 0x01 || adaptation_field == 0x11) {
 						 //fprintf(stdout,"ADAPTING  = %X\n", adaptation_field);
 						}
-						last_pat = position;
 						pmt_start = 13;//this could be valible based on ssi?
 						pdl = sl+3-8-4; //done like this to show, whats going on (sec length +3) -8? -4(crc)
 						progindex = 0;
@@ -323,18 +379,13 @@ int main(int argc, char *argv[])
 							pdl = pdl-4;
 							progindex++;
 						}
-
-						data = packet+5;
-						data_len = sl + 3;
-						crc = (crc << 8) | data[data_len-4];
-						crc = (crc << 8) | data[data_len-3];
-						crc = (crc << 8) | data[data_len-2];
-						crc = (crc << 8) | data[data_len-1];
-						check_crc = crc32_block(0xffffffff,data,data_len);
-						if (check_crc != 0){
-						    fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for PAT is %08x, not 00000000  at packet %lld\n",crc, position);
+						if (check_crc(packet) != 0){
+						    fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for PAT is not 00000000 at packet %lld\n", position);
 						}
+            if(reports)fprintf(pat_delta_values, "%.3f\n", value);
+            haspat = 1;
 						pat_count++;
+            last_pat = position;
 					}
 				}
 
@@ -344,9 +395,14 @@ int main(int argc, char *argv[])
 					if (programs[i] == pid && table_id == 0x02) {
 						value = (1504*(position-last_pmt[pid]))/(bitrate/1000);
 						if(reports)fprintf(pmt_delta_values, "%.3f\n", value);
-						if(  value > 500){
-							fprintf(stdout,"1.5a - ERROR - PMT_error - spacing exceeds 500ms for pid %d at packet %lld\n",pid,position);
+						if(value > 500){
+							fprintf(stdout,"1.5a - ERROR - PMT_error - spacing exceeds 500ms on pid %d at packet %lld\n",pid,position);
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - PMT spacing exceeds 500ms on pid %d at packet %lld\n",pid, position);
 						}
+            //Ignore the first one, we want to see that as soon as possible
+            if(value < 25 && haspmt){
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - PMT spacing subceeds 25ms ( %f ) on pid %d at packet %lld\n", value, pid, position);
+            }
 						//CHECK SCRAMBLING CONTROL
 						if(sc != 0){
 							fprintf(stdout,"1.5c - ERROR - PMT_error - scrambling control is not 0 at packet %lld\n",position);
@@ -376,18 +432,11 @@ int main(int argc, char *argv[])
 							es_info_start = es_info_start + 5 + espdl;
 							streams++;
 						}
-						data = packet + 5;
-						data_len = sl + 3;
-						crc = 0;
-						crc = (crc << 8) | data[data_len-4];
-						crc = (crc << 8) | data[data_len-3];
-						crc = (crc << 8) | data[data_len-2];
-						crc = (crc << 8) | data[data_len-1];
-						check_crc = crc32_block(0xffffffff,data,data_len);
-						if (check_crc != 0)
+						if (check_crc(packet) != 0)
 						{
-						    fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for PMT is %08x, not 00000000 at packet %lld\n",crc, position);
+						    fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for PMT is not 00000000 at packet %lld\n", position);
 						}
+            haspmt = 1;
 						pmt_count++;
 						last_pmt[pid] = position;
 					}else if (programs[i] == pid && table_id != 0x02) {
@@ -395,8 +444,6 @@ int main(int argc, char *argv[])
 						fprintf(stdout, "1.5b - ERROR - PMT_error - PMT (%d) table_id is invalid (0x%X) at packet %lld\n", pid,table_id,position);
 					}
 				}
-
-
 
 				if (pid_cc_table[pid] == 0x10) {
 					//fprintf(stderr, "New PID found in stream %d\n", pid);
@@ -439,7 +486,6 @@ int main(int argc, char *argv[])
 					if(streampids[i] == pid){
 						valid_stream[pid] = 1;
 					}
-
 				}
 			//}
 
@@ -454,19 +500,23 @@ int main(int argc, char *argv[])
 				if(table_id!=0x01){
 						fprintf(stdout,"2.6b - ERROR - CAT_error - Section with table_id other than 0x01 found on PID 0x0001 at packet %llu\n",position);
 				}else{
-					hascat = 1;
-					data = packet+5;
-					data_len = sl + 3;
-					crc = 0;
-					crc = (crc << 8) | data[data_len-4];
-					crc = (crc << 8) | data[data_len-3];
-					crc = (crc << 8) | data[data_len-2];
-					crc = (crc << 8) | data[data_len-1];
-					check_crc = crc32_block(0xffffffff,data,data_len);
-					if (check_crc != 0)
+					if (check_crc(packet) != 0)
 					{
-						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for CAT is %08x, not 00000000  at packet %lld\n",crc, position);
+						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for CAT is not 00000000 at packet %lld\n", position);
 					}
+          value = (1504*(position-last_cat))/(bitrate/1000);
+          if( value > 500){
+            fprintf(stdout,"3.1b  - ERROR - NIT_error - CAT spacing exceeds 500ms on pid %d at packet %lld - value : %lld \n",pid, position,((1504*(position-last_nit))/(bitrate/1000)));
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - CAT spacing exceeds 500ms on pid %d at packet %lld\n",pid, position);
+          }
+          //Ignore the first one, we want to see that as soon as possible
+          if( value < 25 && hascat){
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - CAT spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+          }
+          if(reports)fprintf(cat_delta_values, "%.3f\n", value);
+          hascat = 1;
+          cat_count++;
+          last_cat = position;
 				}
 			}
 
@@ -478,27 +528,23 @@ int main(int argc, char *argv[])
 			//Check for NIT packets
 			if(pid == 0x10){
 				if((table_id== 0x40 || table_id== 0x41 || table_id== 0x72 )){
-					hasnit = 1;
-					data = packet+5;
-					data_len = sl + 3;
-					crc = 0;
-					crc = (crc << 8) | data[data_len-4];
-					crc = (crc << 8) | data[data_len-3];
-					crc = (crc << 8) | data[data_len-2];
-					crc = (crc << 8) | data[data_len-1];
-					check_crc = crc32_block(0xffffffff,data,data_len);
-					if (check_crc != 0)
+					if (check_crc(packet) != 0)
 					{
-						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for NIT is %08x, not 00000000  at packet %lld\n",crc, position);
+						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for NIT is not 00000000 at packet %lld\n", position);
 					}
 					//JUST NIT, NOT ST?
 					if((table_id== 0x40 || table_id== 0x41)){
 						value = (1504*(position-last_nit))/(bitrate/1000);
-						if(reports)fprintf(nit_delta_values, "%.3f\n", value);
-
 						if( value > 10000){
-							fprintf(stdout,"3.1b  - ERROR - NIT_error - NIT spacing on pid %d is greater than 10000ms (%lld)  at packet %lld\n",pid,((1504*(position-last_nit))/(bitrate/1000)),position);
-						}
+							fprintf(stdout,"3.1b  - ERROR - NIT_error - NIT spacing exceeds 10000ms on pid %d at packet %lld - value : %lld \n",pid, position,((1504*(position-last_nit))/(bitrate/1000)));
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - NIT spacing exceeds 10000ms on pid %d at packet %lld\n",pid, position);
+            }
+            //Ignore the first one, we want to see that as soon as possible
+            if( value < 25 && hasnit){
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - NIT spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+            }
+            if(reports)fprintf(nit_delta_values, "%.3f\n", value);
+            hasnit = 1;
 						nit_count++;
 						last_nit = position;
 					}
@@ -509,45 +555,43 @@ int main(int argc, char *argv[])
 
 			//Check for SDT packets
 			if(pid == 0x11 ){
-
 				if( table_id== 0x42){
-					hassdt = 1;
-					data = packet+5;
-					data_len = sl + 3;
-					crc = 0;
-					crc = (crc << 8) | data[data_len-4];
-					crc = (crc << 8) | data[data_len-3];
-					crc = (crc << 8) | data[data_len-2];
-					crc = (crc << 8) | data[data_len-1];
-					check_crc = crc32_block(0xffffffff,data,data_len);
-					if (check_crc != 0)
+					if (check_crc(packet) != 0)
 					{
-						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for SDT is %08x, not 00000000  at packet %lld\n",crc, position);
+						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for SDT is not 00000000 at packet %lld\n", position);
 					}
 					value = (1504*(position-last_sdt))/(bitrate/1000);
-					if(reports)fprintf(sdt_delta_values, "%.3f\n", value);
-
 					if( value > 2000){
-							fprintf(stdout,"3.5a  - ERROR - SDT_error - Sections with table_id = 0x42 not present on PID 0x0011 for more than 2 seconds at packet %lld\n",position);
+							fprintf(stdout,"3.5a  - ERROR - SDT_error - SDT spacing exceeds 2000ms on pid %d at packet %lld\n",pid, position);
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - SDT spacing exceeds 2000ms on pid %d at packet %lld\n",pid, position);
 					}
+          //Ignore the first one, we want to see that as soon as possible
+          if( value < 25 && hassdt){
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - SDT spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+          }
+          if(reports)fprintf(sdt_delta_values, "%.3f\n", value);
+          hassdt = 1;
 					sdt_count++;
 					last_sdt = position;
-				}else if( table_id== 0x46 ||table_id== 0x4A || table_id== 0x72){
-					hassdt = 1;
+				}else if( table_id== 0x4A ){//table_id== 0x46 |||| table_id== 0x72
 					//SDT OTHER, NOT SURE WHAT TO REALLY DO HERE.....  (0x46, 0x4A or 0x72 tables) a4 is bat below...
-					last_sdt = position;//Not sure if this counts for timing or not...
-					data = packet+5;
-					data_len = sl + 3;
-					crc = 0;
-					crc = (crc << 8) | data[data_len-4];
-					crc = (crc << 8) | data[data_len-3];
-					crc = (crc << 8) | data[data_len-2];
-					crc = (crc << 8) | data[data_len-1];
-					check_crc = crc32_block(0xffffffff,data,data_len);
-					if (check_crc != 0)
+					if (check_crc(packet) != 0)
 					{
-						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for BAT is %08x, not 00000000  at packet %lld\n",crc, position);
+						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for BAT is not 00000000  at packet %lld\n", position);
 					}
+          value = (1504*(position-last_bat))/(bitrate/1000);
+					if( value > 10000){
+							fprintf(stdout,"3.5a  - ERROR - BAT_error - BAT spacing exceeds 10000ms on pid %d at packet %lld\n",pid, position);
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - BAT spacing exceeds 10000ms on pid %d at packet %lld\n",pid, position);
+					}
+          //Ignore the first one, we want to see that as soon as possible
+          if( value < 25 && hasbat){
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - BAT spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+          }
+          if(reports)fprintf(bat_delta_values, "%.3f\n", value);
+          hasbat = 1;
+          bat_count++;
+          last_bat = position;
 				}else{
 					fprintf(stdout,"3.5b - ERROR - SDT_error -  Section with table_id other than 0x42, 0x46, 0x4A or 0x72 found on PID 0x0011 at packet %lld\n",position);
 				}
@@ -555,46 +599,44 @@ int main(int argc, char *argv[])
 			}
 
 
-
 			//Check for TDT packets
 			if(pid == 0x14){
 				if( table_id== 0x70 ){
-					hastdt = 1;
-					data = packet+5;
-					data_len = sl + 3;
-					crc = 0;
-					crc = (crc << 8) | data[data_len-4];
-					crc = (crc << 8) | data[data_len-3];
-					crc = (crc << 8) | data[data_len-2];
-					crc = (crc << 8) | data[data_len-1];
-					check_crc = crc32_block(0xffffffff,data,data_len);
-					if (check_crc != 0)
+					if (check_crc(packet) != 0)
 					{
-						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for TDT is %08x, not 00000000  at packet %lld\n",crc, position);
+						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for TDT is not 00000000 at packet %lld\n", position);
 					}
 					value =  (1504*(position-last_tdt))/(bitrate/1000) ;
-					if(reports)fprintf(tdt_delta_values, "%.3f\n", value);
-
 					if( value > 30000){
-							fprintf(stdout,"3.8a  - ERROR - TDT_error - Sections with table_id = 0x70 not present on PID 0x0014 for more than 30 seconds at packet %lld\n",position);
+							fprintf(stdout,"3.8a  - ERROR - TDT_error - TDT spacing exceeds 30000ms on pid %d at packet %lld\n",pid, position);
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - TDT spacing exceeds 30000ms on pid %d at packet %lld\n",pid, position);
 					}
+          //Ignore the first one, we want to see that as soon as possible
+          if( value < 25 && hastdt){
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - TDT spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+          }
+          if(reports)fprintf(tdt_delta_values, "%.3f\n", value);
+          hastdt = 1;
 					tdt_count++;
 					last_tdt = position;
-				}else if(table_id== 0x73  || table_id== 0x72){ // 72???
-					hastdt = 1;
-					last_tdt = position;
-					data = packet+5;
-					data_len = sl + 3;
-					crc = 0;
-					crc = (crc << 8) | data[data_len-4];
-					crc = (crc << 8) | data[data_len-3];
-					crc = (crc << 8) | data[data_len-2];
-					crc = (crc << 8) | data[data_len-1];
-					check_crc = crc32_block(0xffffffff,data,data_len);
-					if (check_crc != 0)
+				}else if(table_id== 0x73 ) { // 72???|| table_id== 0x72) //ST TABLE
+					if (check_crc(packet) != 0)
 					{
-						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for TOT is %08x, not 00000000  at packet %lld\n",crc, position);
+						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for TOT is not 00000000 at packet %lld\n", position);
 					}
+          value =  (1504*(position-last_tot))/(bitrate/1000) ;
+          if( value > 30000){
+							fprintf(stdout,"3.8a  - ERROR - TOT_error - Sections with table_id = 0x70 not present on PID 0x0014 for more than 30 seconds at packet %lld\n",position);
+              fprintf(stdout,"3.2 - ERROR - SI_repetition_error - TOT spacing exceeds 30000ms on pid %d at packet %lld\n",pid, position);
+					}
+          //Ignore the first one, we want to see that as soon as possible
+          if( value < 25 && hastot){
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - TOT spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+          }
+          if(reports)fprintf(tot_delta_values, "%.3f\n", value);
+          hastot = 1;
+          tot_count++;
+					last_tot = position;
 				}else{
 					fprintf(stdout,"3.8b - ERROR - TDT_error -  Section with table_id other than 0x70, 0x72, 0x73 found on PID 0x0014 at packet %lld\n",position);
 				}
@@ -604,30 +646,27 @@ int main(int argc, char *argv[])
 			//Check for EIT packets
 			if(pid == 0x12){
 				if(table_id== 0x4e ){
-					haseit = 1;
-					data = packet+5;
-					data_len = sl + 3;
-					crc = 0;
-					crc = (crc << 8) | data[data_len-4];
-					crc = (crc << 8) | data[data_len-3];
-					crc = (crc << 8) | data[data_len-2];
-					crc = (crc << 8) | data[data_len-1];
-					check_crc = crc32_block(0xffffffff,data,data_len);
-					if (check_crc != 0)
+					if (check_crc(packet) != 0)
 					{
-						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for EIT is %08x, not 00000000  at packet %lld\n",crc, position);
+						fprintf(stdout, "2.2  - ERROR - CRC_error - Calculated CRC for EIT is not 00000000 at packet %lld\n", position);
 					}
-					if(reports)value = (1504*(position-last_eit))/(bitrate/1000);
-					fprintf(eit_delta_values, "%.3f\n", value);
-
+          value = (1504*(position-last_eit))/(bitrate/1000);
 					if( value > 2000){
 						fprintf(stdout,"3.6a  - ERROR - EIT_error - Sections with table_id = 0x4E not present on PID 0x0012 for more than 2 seconds at packet %lld\n",position);
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - EIT spacing exceeds 2000ms on pid %d at packet %lld\n",pid, position);
 					}
+          //Ignore the first one, we want to see that as soon as possible
+          if( value < 25 && haseit){
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - EIT spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+          }
+          if(reports)fprintf(eit_delta_values, "%.3f\n", value);
+          haseit = 1;
 					eit_count++;
 					last_eit = position;
 				}else if((table_id >= 0x4e  && table_id <= 0x6F) || table_id == 0x72){
-					haseit = 1;
-					last_eit = position; //Again, not sure if these should count towards nit timing?
+          //TODO:FIXME
+					//haseit = 1;
+					//last_eit = position; //Again, not sure if these should count towards nit timing?
 				}else{
 					fprintf(stdout,"3.6b - ERROR - SDT_error -  Sections with table_ids other than in the range 0x4E - 0x6F or 0x72 found on PID 0x0012 at packet %lld\n",position);
 				}
@@ -635,11 +674,19 @@ int main(int argc, char *argv[])
 
 			//RST
 			if(pid == 0x13){
-				if(table_id== 0x71 || table_id==0x72 ){
-					//hasrst=1;
+				if(table_id== 0x71){ //|| table_id==0x72
+          value = (1504*(position-last_rst))/(bitrate/1000);
+          //No max.
+
+          if( value < 25 ){
+            fprintf(stdout,"3.2 - ERROR - SI_repetition_error - RST spacing subceeds 25ms on pid %d at packet %lld\n",pid, position);
+          }
+          if(reports)fprintf(rst_delta_values, "%.3f\n", value);
+          hasrst=1;
+          rst_count++;
+          last_rst = position;
 				}else{
 					fprintf(stdout,"3.7  - ERROR - RST_error -  Sections with table_id other than 0x71 or 0x72 found on PID 0x0013 at packet %lld\n",position);
-
 				}
 			}
 
@@ -713,7 +760,7 @@ int main(int argc, char *argv[])
   		  if(last_pts[pid] >0){
   				//check the timestamp delta's, warn if more than 700ms
   				if((atime - last_pts[pid])  >=700 && atime > last_pts[pid] ){
-  					fprintf(stdout,"2.5  - ERROR - PTS_error - PTS spacing on pid %d is greater than 700ms (%lld) time: %lld lasttime:%lld at packet %lld\n" ,pid,atime - last_pts[pid],atime, last_pts[pid], position);
+  					fprintf(stdout,"2.5  - ERROR - PTS_error - PTS spacing is greater than 700ms on pid %d at packet %lld - valueL (%lld) time: %lld lasttime:%lld\n" ,pid, position, atime - last_pts[pid],atime, last_pts[pid]);
   				}
   			}
         //Some pts might be in the past? by about 50ms per b frame?  Leaving a negative return above
@@ -729,6 +776,8 @@ int main(int argc, char *argv[])
 		//TODO - I'm no expert, and these are well beyond my range at the moment.
 
 		// 3.2 - 3.2 SI_repetition_error Repetition rate of SI tables outside of vspecified limits (25ms)
+
+
 		/*3.3 Buffer_error TB_buffering_error
 overflow of transport buffer (TBn)
 TBsys_buffering_error
