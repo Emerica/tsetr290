@@ -13,20 +13,23 @@ Python GUI for this will be made in another repo.
 git clone https://github.com/Emerica/tsetr290.git
 cd tsetr290
 make
-./tsetr290 filname bitrate [debug]
-./tsetr290 mytestfile.ts 15000000 1
+./tsetr290 filname [bitrate] [reports]
+./tsetr290 mytestfile.ts
+./tsetr290 mytestfile.ts 15000000
 
 make install
 
-tsetr290 filname bitrate [debug]
+tsetr290 filname [bitrate] [reports]
+tsetr290 mytestfile.ts
 tsetr290 mytestfile.ts 15000000 1
 
-
 ```
+If bitrate is not supplied it will be calculated from the PCR values.
+If reports is set, a set of delta reports will be created which can be graphed.
 
-
-Most checks have been implemented, I haven't had a need to pass L3, but again feel free to implement them.
-
+Most checks that don't require buffering have been implemented, possibly incorrectly.
+I haven't had a need to pass L3, most providers on seem to require L1 and L2.
+Feel free to implement them the remaining checks.
 
 
 ## 1.0 ##
