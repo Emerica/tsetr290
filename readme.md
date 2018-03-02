@@ -46,7 +46,7 @@ If reports is set, a set of delta reports will be created which can be graphed.
 
 Most checks that don't require buffering have been implemented, possibly incorrectly.
 I haven't had a need to pass L3, most providers on seem to require L1 and L2.
-Feel free to implement them the remaining checks.
+Feel free to implement the remaining checks.
 
 
 ## 1.0 ##
