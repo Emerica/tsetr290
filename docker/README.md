@@ -6,12 +6,14 @@
 
 %MEDIAFILE.ts% = A Transport Stream in the directory
 
-%BITRATE% = The expected bitrate 
+%BITRATE% = The expected bitrate (optional)
+
+%REPORTS% = Optional reports (optional)
 
 ```
 git clone https://github.com/Emerica/tsetr290.git
 cd tsetr290/docker
 docker build -t tsetr290:latest .
 docker run -i -t --mount type=bind,source="%SOURCEDIR%",target=/scan tsetr290:latest \ 
-  /usr/local/bin/tsetr290 "/scan/%MEDIAFILE.ts%" %BITRATE%
+  /usr/local/bin/tsetr290 "/scan/%MEDIAFILE.ts%" %BITRATE% %REPORTS%
 ```
