@@ -1,0 +1,107 @@
+<html>
+  <head>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script>
+      $( function() {
+        $( "#tabs" ).tabs();
+      } );
+    </script>
+  </head>
+  <body>
+    <div id="tabs">
+      <ul>
+        <li><a href="#tabs-1">BAT</a></li>
+        <li><a href="#tabs-2">CAT</a></li>
+        <li><a href="#tabs-3">EIT</a></li>
+        <li><a href="#tabs-4">NIT</a></li>
+        <li><a href="#tabs-5">PAT</a></li>
+        <li><a href="#tabs-6">PCR</a></li>
+        <li><a href="#tabs-7">PMT</a></li>
+        <li><a href="#tabs-8">RST</a></li>
+        <li><a href="#tabs-9">SDT</a></li>
+        <li><a href="#tabs-10">TDT</a></li>
+        <li><a href="#tabs-11">TOT</a></li>
+        <li><a href="#tabs-12">REPORT</a></li>
+      </ul>
+      <div id="tabs-1">
+        <div id="bat"></div>
+      </div>
+      <div id="tabs-2">
+        <div id="cat"></div>
+      </div>
+      <div id="tabs-3">
+        <div id="eit"></div>
+      </div>
+      <div id="tabs-4">
+        <div id="nit"></div>
+      </div>
+      <div id="tabs-5">
+        <div id="pat"></div>
+      </div>
+      <div id="tabs-6">
+        <div id="pcrd"></div>
+        <div id="pcrj"></div>
+      </div>
+      <div id="tabs-7">
+        <div id="pmt"></div>
+      </div>
+      <div id="tabs-8">
+        <div id="rst"></div>
+      </div>
+      <div id="tabs-9">
+        <div id="sdt"></div>
+      </div>
+      <div id="tabs-10">
+        <div id="tdt"></div>
+      </div>
+      <div id="tabs-11">
+        <div id="tot"></div>
+      </div>
+      <div id="tabs-12">
+        <div id="rpt"></div>
+      </div>
+    </div>
+    <script>
+      //Array.apply(null, Array(500)).map(function (_, i) {return i;});
+      batinput = %BATD%;
+      var bat = [{x:batinput.keys(),y: batinput,type: 'bar'}];
+      Plotly.newPlot('bat', bat);
+      catinput = %CATD%;
+      var cat = [{x:catinput.keys(),y: catinput,type: 'bar'}];
+      Plotly.newPlot('cat', cat);
+      eitinput = %EITD%;
+      var eit = [{x:eitinput.keys(),y: eitinput,type: 'bar'}];
+      Plotly.newPlot('eit', eit);
+      nittinput = %NITD%;
+      var nit = [{x:nittinput.keys(),y: nittinput,type: 'bar'}];
+      Plotly.newPlot('nit', nit);
+      rsttinput = %RSTD%;
+      var rst = [{x:rsttinput.keys(),y: rsttinput,type: 'bar'}];
+      Plotly.newPlot('rst', rst);
+      tottinput = %TOTD%;
+      var tot = [{x:tottinput.keys(),y: tottinput,type: 'bar'}];
+      Plotly.newPlot('tot', tot);
+      tdttinput = %TDTD%;
+      var tdt = [{x:tdttinput.keys(),y: tdttinput,type: 'bar'}];
+      Plotly.newPlot('tdt', tdt);
+      patinput = %PATD%;
+      var pat = [{x:patinput.keys(),y: patinput,type: 'bar'}];
+      Plotly.newPlot('pat', pat);
+      sdtinput = %SDTD%;
+      var sdt = [{x: sdtinput.keys(),y: sdtinput,type: 'bar'}];
+      Plotly.newPlot('sdt', sdt);
+      pmtinput = %PMTD%;
+      var pmt = [{x: pmtinput.keys(),y: pmtinput,type: 'bar'}];
+      Plotly.newPlot('pmt', pmt);
+      pcrjinput = %PCRJ%;
+      var pcrj = [{x: pcrjinput.keys(),y: pcrjinput,type: 'bar'}];
+      Plotly.newPlot('pcrj', pcrj);
+      pcrdinput = %PCRD%;
+      var pcrd = [{x: pcrdinput.keys(),y: pcrdinput,type: 'bar'}];
+      Plotly.newPlot('pcrd', pcrd);
+    </script>
+  </body>
+</html>
