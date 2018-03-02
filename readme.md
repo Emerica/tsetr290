@@ -31,22 +31,32 @@ OR with docker/bind mount
 
 %MEDIAFILE.ts% = A Transport Stream in the directory
 
-%BITRATE% = The expected bitrate 
+%BITRATE% = The expected bitrate (optional)
+
+%REPORTS% = Optional reports (optional)
 
 ```
 git clone https://github.com/Emerica/tsetr290.git
 cd tsetr290/docker
 docker build -t tsetr290:latest .
 docker run -i -t --mount type=bind,source="%SOURCEDIR%",target=/scan tsetr290:latest \ 
-  /usr/local/bin/tsetr290 "/scan/%MEDIAFILE.ts%" %BITRATE%
+  /usr/local/bin/tsetr290 "/scan/%MEDIAFILE.ts%" %BITRATE% %REPORTS%
 ```
 
 If bitrate is not supplied it will be calculated from the PCR values.
+This is not optimal if you are looking for a proper report.
+Timing accuracy will suffer until the rate has been established.
+
 If reports is set, a set of delta reports will be created which can be graphed.
 
 Most checks that don't require buffering have been implemented, possibly incorrectly.
 I haven't had a need to pass L3, most providers on seem to require L1 and L2.
 Feel free to implement the remaining checks.
+
+Links to the refference decoder would help here. mpeg2dec?
+It seems mpeg.org has had a Joomla problem for weeks and hasn't been bothered to fix it.
+
+![alt text](https://i.imgur.com/Bm9zBh5.png)
 
 
 ## 1.0 ##
